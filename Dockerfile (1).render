@@ -1,0 +1,57 @@
+# =========================================================================
+# Dockerfile — civicfix, built for deployment on Render
+#
+# Based on package.json / package-lock.json:
+#   - npm workspaces monorepo: "server" (civicfix-backend) + "client" (civicfix-client)
+#   - server: Express, better-sqlite3, multer, cors, dotenv, uuid, node-fetch
+#   - client: React 18 + Vite 5 + Tailwind + Leaflet/react-leaflet
+#
+# ASSUMPTIONS (no server/package.json or client/package.json was provided —
+# confirm/correct these if they don't match your actual scripts):
+#   - client has a "build" script (Vite default: `vite build` -> client/dist)
+#   - server entry point is server/index.js
+#   - server reads process.env.PORT and binds to 0.0.0.0 (REQUIRED by Render
+#     — this is different from the earlier local-only Dockerfile, which
+#     intentionally bound to 127.0.0.1 only per NFR-02/09_SECURITY.md;
+#     that constraint no longer applies once you're actually deploying)
+#   - server serves client/dist as static files (single web service, no
+#     separate static site — simplest single-service Render deploy)
+#
+# Render's own container runtime provides the PORT env var at runtime and
+# expects the process to listen on it — do not hardcode a port.
+# =========================================================================
+
+FROM node:20-slim AS base
+# better-sqlite3 needs native build tools to compile from source
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ---- Install all workspace deps in one pass (uses root lockfile) ---------
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/package.json
+COPY client/package.json ./client/package.json
+RUN npm ci
+
+# ---- Copy source and build the client -------------------------------------
+COPY server ./server
+COPY client ./client
+RUN npm run build --workspace=client
+
+# ---- Prune dev dependencies for a smaller runtime image --------------------
+RUN npm prune --omit=dev
+
+# ---- Runtime ----------------------------------------------------------------
+ENV NODE_ENV=production
+# Render injects PORT at runtime; this default is only for local `docker run`
+ENV PORT=3000
+
+# SQLite data directory — attach a Render Disk here if you need the DB to
+# persist across deploys (Render's default filesystem is ephemeral)
+RUN mkdir -p /app/server/data
+
+EXPOSE 3000
+WORKDIR /app/server
+CMD ["node", "index.js"]

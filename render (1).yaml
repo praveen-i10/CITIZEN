@@ -1,0 +1,26 @@
+# render.yaml — Render "Infrastructure as Code" blueprint
+# Place at repo root alongside Dockerfile.render. Render will detect this
+# automatically when you connect the repo, or you can configure the same
+# settings manually in the Render dashboard.
+
+services:
+  - type: web
+    name: civicfix
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free            # change if you need more than free-tier resources
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AI_CATEGORISATION_API_KEY
+        sync: false        # set manually in Render dashboard — never commit
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: SMS_PROVIDER_API_KEY
+        sync: false
+    # Render's default filesystem is ephemeral — every deploy wipes it.
+    # Uncomment below (paid plans only) so the SQLite file survives deploys:
+    # disk:
+    #   name: civicfix-data
+    #   mountPath: /app/server/data
+    #   sizeGB: 1
