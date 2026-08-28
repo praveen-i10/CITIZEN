@@ -1,0 +1,6 @@
+{
+  "name": "CITIZEN - Civic Issue Reporting & Resolution",
+  "description": "Location-aware, evidence-backed civic issue reporting, automatic jurisdiction routing, and resolution platform for Chennai.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
