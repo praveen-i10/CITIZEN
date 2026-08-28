@@ -28,16 +28,21 @@ export const NearbyIssuesMap: React.FC = () => {
 
   // Get real device GPS on mount
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-      },
-      () => {
-        // Permission denied or unavailable — fall back to Adyar
-        setUserLocation([13.0015, 80.2575]);
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+        },
+        () => {
+          // Permission denied or unavailable — fall back to Adyar
+          setUserLocation([13.0015, 80.2575]);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    } else {
+      // Geolocation API not supported — fall back to Adyar
+      setUserLocation([13.0015, 80.2575]);
+    }
   }, []);
 
   // Fetch nearby issues once we have a location

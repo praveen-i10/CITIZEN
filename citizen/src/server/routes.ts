@@ -123,7 +123,7 @@ apiRouter.post('/complaints', upload.single('photo'), async (req: Request, res: 
       photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
       photoHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
       try {
-        const exifData = await exifr.parse(req.file.buffer);
+        const exifData = await exifr.gps(req.file.buffer);
         if (exifData && exifData.latitude && exifData.longitude) {
           photoExifLat = exifData.latitude;
           photoExifLng = exifData.longitude;

@@ -199,6 +199,7 @@ export async function transcribeVoiceAudio(
       formData.append('model', 'saaras:v3');
       formData.append('language_code', langCode);
       formData.append('mode', 'transcribe');
+      formData.append('prompt', 'Chennai municipal corporation, civic issue reporting, pothole, garbage, streetlight, drainage');
 
       const response = await fetch('https://api.sarvam.ai/speech-to-text', {
         method: 'POST',

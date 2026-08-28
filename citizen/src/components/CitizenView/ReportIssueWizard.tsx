@@ -83,6 +83,7 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
   const [locationLabel, setLocationLabel] = useState<string>('Unknown Location');
   const [timestamp, setTimestamp] = useState<string>(new Date().toISOString());
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [gpsIsFallback, setGpsIsFallback] = useState<boolean>(false);
 
   // Get real GPS
   const fetchGps = () => {
@@ -91,17 +92,20 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
         (pos) => {
           setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setLocationLabel(`GPS Location (Accuracy: ${Math.round(pos.coords.accuracy)}m)`);
+          setGpsIsFallback(false);
         },
         (err) => {
           console.warn('GPS error', err);
           setGpsCoords({ lat: 13.0015, lng: 80.2575 });
           setLocationLabel('GPS Blocked - Using Fallback');
+          setGpsIsFallback(true);
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
       );
     } else {
       setGpsCoords({ lat: 13.0015, lng: 80.2575 });
       setLocationLabel('GPS Unsupported - Using Fallback');
+      setGpsIsFallback(true);
     }
   };
 
@@ -228,17 +232,20 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
         if (e.data.size > 0) audioChunks.push(e.data);
       };
 
+      // Set up the onstop promise BEFORE starting/stopping to avoid race condition
+      const audioBlobPromise = new Promise<Blob>((resolve) => {
+        mediaRecorder.onstop = () => {
+          resolve(new Blob(audioChunks, { type: 'audio/webm' }));
+        };
+      });
+
       mediaRecorder.start();
       
       // Record for 3 seconds
       await new Promise(resolve => setTimeout(resolve, 3000));
       mediaRecorder.stop();
 
-      const audioBlob = await new Promise<Blob>((resolve) => {
-        mediaRecorder.onstop = () => {
-          resolve(new Blob(audioChunks, { type: 'audio/webm' }));
-        };
-      });
+      const audioBlob = await audioBlobPromise;
       
       stream.getTracks().forEach(track => track.stop());
 
@@ -262,6 +269,7 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
       setIsRecording(false);
     }
   };
+
 
   // Run AI Categorization and Auto-Submit (Bypass Step 3)
   const handleRunAiCategorization = async () => {
@@ -342,7 +350,7 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
         formData.append('deviceGpsLat', String(gpsCoords.lat));
         formData.append('deviceGpsLng', String(gpsCoords.lng));
       }
-      formData.append('gpsIsApproximate', 'false');
+      formData.append('gpsIsApproximate', gpsIsFallback ? 'true' : 'false');
       formData.append('capturedAt', timestamp);
       formData.append('overrideCategory', finalCategory);
       if (duplicateIssueId) {
@@ -432,6 +440,7 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
           <span className="bg-white/50 px-3 py-1 rounded-full border border-slate-200/50 backdrop-blur-sm">
             {step === 1 && '1. Evidence Capture'}
             {step === 2 && '2. Voice & Details'}
+            {step === 3 && '3. AI Routing'}
             {step === 4 && '4. Duplicate Check'}
             {step === 5 && '5. Issue Logged'}
           </span>
@@ -885,7 +894,20 @@ export const ReportIssueWizard: React.FC<ReportIssueWizardProps> = ({ onFinish }
             <button
               onClick={() => {
                 setStep(1);
-                setDescription('Pothole on 2nd Ave near bus stop.');
+                setCapturedPhotoUrl(null);
+                setCapturedFile(null);
+                setGpsCoords(null);
+                setGpsIsFallback(false);
+                setLocationLabel('Unknown Location');
+                setTimestamp(new Date().toISOString());
+                setDescription('Large hazardous pothole near 2nd Avenue junction in Adyar, cars and bikes are swerving dangerously.');
+                setDescriptionSource('typed');
+                setAiSuggestedCategory('pothole');
+                setSelectedCategory('pothole');
+                setDuplicateCandidate(null);
+                setCreatedComplaintId(null);
+                setReferenceId('');
+                setSubmissionResult(null);
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm transition-colors"
             >
